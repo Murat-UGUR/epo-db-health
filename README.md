@@ -17,7 +17,14 @@ Use it when the ePO console is slow, the database or transaction log keeps growi
 >
 > 🇹🇷 **Geliştirme aşamasında: Bu sorgular henüz canlı bir ePO veritabanında test edilmedi.** Sürümünüze göre tablo veya kolon adları farklı olabilir. Önce lab/test ortamında çalıştırın, doğrudan production'da çalıştırmayın. Lab testleri tamamlandığında gerekli düzeltmeler yapılıp sorgular "doğrulandı" olarak işaretlenecektir.
 
-> 🇹🇷 ePO veritabanı için salt-okunur sağlık kontrol sorguları: tablo boyutları, index fragmantasyonu, log büyümesi, olay hacmi, haberleşmeyen agent'lar ve en pahalı sorgular.
+> 🇹🇷 **Türkçe özet:** Trellix ePO'nun SQL Server veritabanının sağlığını kontrol eden T-SQL sorguları. Sorgular yalnızca okuma yapar, veritabanında hiçbir değişiklik yapmaz. ePO konsolu yavaşladığında, veritabanı ya da transaction log sürekli büyüdüğünde veya bir sürüm yükseltmesinden önce hızlı bir durum tespiti için kullanılır. Sorgular şunları gösterir:
+>
+> - En çok yer kaplayan tablolar
+> - Bakım gerektiren (parçalanmış) index'ler
+> - Transaction log'un neden büyüdüğü
+> - Aylık tehdit olayı sayıları ve en çok olay üreten ürünler
+> - ePO ile uzun süredir haberleşmeyen agent'lar
+> - En çok CPU tüketen sorgular
 
 ## Scripts
 

@@ -7,6 +7,15 @@ Use it when the ePO console is slow, the database or transaction log keeps growi
 ![Read-only](https://img.shields.io/badge/mode-read--only-success?style=flat-square)
 ![PowerShell](https://img.shields.io/badge/runner-PowerShell-5391FE?style=flat-square&logo=powershell&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![Status](https://img.shields.io/badge/status-untested%20%C2%B7%20work%20in%20progress-orange?style=flat-square)
+
+> [!WARNING]
+> **Work in progress: these scripts have not yet been validated against a live ePO database.**
+> They were written against the documented SQL Server DMVs and the ePO 5.x schema, but have not been run end-to-end on a real ePO / SQL Server instance yet.
+> Table or column names may differ on your version. **Run them in a lab or test environment first, never directly on production.**
+> Scripts will be corrected and marked as validated once lab testing is complete (see [Testing status](#testing-status)).
+>
+> 🇹🇷 **Geliştirme aşamasında: Bu sorgular henüz canlı bir ePO veritabanında test edilmedi.** Sürümünüze göre tablo veya kolon adları farklı olabilir. Önce lab/test ortamında çalıştırın, doğrudan production'da çalıştırmayın. Lab testleri tamamlandığında gerekli düzeltmeler yapılıp sorgular "doğrulandı" olarak işaretlenecektir.
 
 > 🇹🇷 ePO veritabanı için salt-okunur sağlık kontrol sorguları: tablo boyutları, index fragmantasyonu, log büyümesi, olay hacmi, haberleşmeyen agent'lar ve en pahalı sorgular.
 
@@ -49,8 +58,23 @@ A login with `db_datareader` on the ePO database plus `VIEW SERVER STATE` (scrip
 - **System DMV scripts** (00, 01, 02, 05) work on any supported SQL Server version.
 - **ePO-specific scripts** (03, 04) target the ePO 5.x schema (`EPOEvents`, `EPOLeafNode`, `EPOComputerProperties`). Column names can differ between versions, so verify them in a lab first.
 
+## Testing status
+
+| # | Script | Status |
+|:-:|---|---|
+| 00 | `overview` | ⏳ Not yet validated on a live ePO |
+| 01 | `table_sizes` | ⏳ Not yet validated on a live ePO |
+| 02 | `index_fragmentation` | ⏳ Not yet validated on a live ePO |
+| 03 | `event_volume` | ⏳ Not yet validated. ePO-specific column names need checking |
+| 04 | `stale_agents` | ⏳ Not yet validated. ePO-specific column names need checking |
+| 05 | `top_queries` | ⏳ Not yet validated on a live ePO |
+| — | `run_all.ps1` | ⏳ Not yet validated |
+
+Found a problem? Please [open an issue](../../issues) with your ePO and SQL Server versions and the error message.
+
 ## Roadmap
 
+- [ ] Validate all scripts on a lab ePO + SQL Server and fix any schema differences
 - [ ] CSV / HTML report output
 - [ ] Per-product event breakdown (ENS, DLP, HX)
 - [ ] Server-task history and failed-task report

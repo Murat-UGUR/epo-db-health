@@ -1,0 +1,45 @@
+name: SQL CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  sql-server:
+    name: Run scripts on SQL Server 2022 (mock ePO schema)
+    runs-on: ubuntu-latest
+    env:
+      SA_PASSWORD: CiOnly_Throwaway_Pa55!   # throwaway password for the ephemeral CI container
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: CiOnly_Throwaway_Pa55!
+        ports:
+          - 1433:1433
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute every script and check results
+        run: bash tests/ci/run_sql_ci.sh "${{ job.services.mssql.id }}" "$SA_PASSWORD"
+      - name: Upload script output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sql-output
+          path: ci-output/
+
+  powershell:
+    name: Lint run_all.ps1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PSScriptAnalyzer (errors only)
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+          $r = Invoke-ScriptAnalyzer -Path ./run_all.ps1 -Severity Error
+          $r | Format-Table -AutoSize
+          if ($r) { exit 1 }

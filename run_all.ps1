@@ -26,7 +26,7 @@ if ($SqlAuth) {
 
 Get-ChildItem -Path "$PSScriptRoot\sql" -Filter *.sql | Sort-Object Name | ForEach-Object {
     $out = Join-Path $OutDir ($_.BaseName + '.txt')
-    Write-Host "→ $($_.Name)" -ForegroundColor Cyan
+    Write-Host "-> $($_.Name)" -ForegroundColor Cyan
     & sqlcmd -S $Server -d $Database @auth -b -W -s '|' -i $_.FullName -o $out
     if ($LASTEXITCODE -ne 0) { Write-Warning "$($_.Name) failed, see $out" }
 }

@@ -28,6 +28,10 @@ Use it when the ePO console is slow, the database or transaction log keeps growi
 > - En çok CPU tüketen sorgular
 > - Yedekleme durumu ve log'un neden büyüdüğüne dair uyarı
 > - SQL Server'ın en çok neyi beklediği (disk, CPU, kilitlenme, bellek)
+> - Olayların ürün, tehdit, aksiyon ve host bazında dağılımı
+> - ePO'nun purge (temizlik) görevlerinin çalışıp çalışmadığı
+>
+> `run_all.ps1` tüm sorguları çalıştırıp TXT, CSV ve tek dosyalık bir HTML rapor üretir; şifre komut satırına yazılmaz.
 
 ## Scripts
 
@@ -41,25 +45,40 @@ Use it when the ePO console is slow, the database or transaction log keeps growi
 | 05 | [`top_queries`](sql/05_top_queries.sql) | Which queries burn the most CPU (dashboards, queries, server tasks)? | — |
 | 06 | [`backup_history`](sql/06_backup_history.sql) | When was the last full / diff / log backup? Is the log growing because log backups are missing? | — |
 | 07 | [`wait_stats`](sql/07_wait_stats.sql) | What is SQL Server waiting on: disk, CPU, blocking or memory? | — |
+| 08 | [`events_by_product`](sql/08_events_by_product.sql) | Which product (ENS, DLP, HX, …) is noisiest? Which threats repeat, with which action? Which hosts are the loudest? What does each event ID mean? | ✅ |
+| 09 | [`purge_check`](sql/09_purge_check.sql) | Are ePO's purge server tasks working? Oldest/newest rows in the event, audit, server-task and rollup tables, with a warning for data older than 90 days | ✅ |
 
 ## Design principles
 
 - **Read-only.** Nothing is written, deleted or rebuilt. Maintenance statements are *generated*, never executed.
-- **Low impact.** Uses `READ UNCOMMITTED` and `LIMITED` index scans. Still, run 02 outside business hours on large databases.
+- **Low impact.** Uses `READ UNCOMMITTED` and `LIMITED` index scans; 09 reads the oldest row through the clustered index instead of scanning. Still, run 02 outside business hours on large databases.
+- **Version-tolerant where possible.** 09 checks that each table and column exists (and follows ePO 5.x views to their `...MT` base tables) and reports what is missing instead of failing.
 - **Native first.** Purge old events with ePO's own **Purge Events** server tasks rather than deleting rows by hand.
 
 ## Usage
 
 **SSMS:** open a script, select your ePO database (e.g. `ePO_<SERVERNAME>`) and execute.
 
-**All at once (PowerShell + sqlcmd):**
+**All at once (PowerShell):**
 
 ```powershell
-.\run_all.ps1 -Server "SQL01\EPO" -Database "ePO_EPOSERVER"           # Windows auth
-.\run_all.ps1 -Server "SQL01" -Database "ePO_EPOSERVER" -SqlAuth      # SQL login prompt
+.\run_all.ps1 -Server "SQL01\EPO" -Database "ePO_EPOSERVER"                  # Windows auth
+.\run_all.ps1 -Server "SQL01" -Database "ePO_EPOSERVER" -SqlAuth             # SQL login prompt
+.\run_all.ps1 -Server "SQL01" -Database "ePO_EPOSERVER" -Include 04,08,09    # only some scripts
+.\run_all.ps1 -Server "SQL01" -Database "ePO_EPOSERVER" -Encrypt -TrustServerCertificate
 ```
 
-Reports are written to `.\reports\<timestamp>\`, one file per script.
+Reports are written to `.\reports\<timestamp>\`:
+
+| File | Content |
+|---|---|
+| `report.html` | One self-contained report: summary table, every result set, `WARNING` rows highlighted |
+| `<script>.txt` | All result sets of a script as text tables |
+| `<script>_<n>.csv` | One UTF-8 CSV per result set, for Excel or further processing |
+
+Choose formats with `-Format Txt,Csv,Html`. The runner exits with code 1 if any script failed.
+
+The runner uses the .NET SqlClient built into Windows PowerShell 5.1 and PowerShell 7: **sqlcmd is not needed**, and SQL passwords are kept in a `SecureString` instead of being passed on a command line. For scheduled runs pass `-Credential` (e.g. from the Windows Credential Manager) instead of `-SqlAuth`.
 
 ### Permissions
 
@@ -68,17 +87,19 @@ A login with `db_datareader` on the ePO database, `VIEW DATABASE STATE`, and `VI
 ## Compatibility
 
 - **System DMV / msdb scripts** (00, 01, 02, 05, 06, 07) work on any supported SQL Server version.
-- **ePO-specific scripts** (03, 04) target the ePO 5.x schema (`EPOEvents`, `EPOLeafNode`, `EPOComputerProperties`). Column names can differ between versions, so verify them in a lab first.
+- **ePO-specific scripts** (03, 04, 08, 09) target the ePO 5.x schema (`EPOEvents`, `EPOEventFilterDesc`, `EPOLeafNode`, `EPOComputerProperties`, and the purge targets in 09). Column names can differ between versions, so verify them in a lab first.
+- On **ePO 5.10+** threat events can live in a separate events database: run 03 and 08 there, and 09 will report `EPOEvents` as not present in the main database.
 
 ## How it's tested
 
 The [SQL CI](.github/workflows/sql-ci.yml) workflow runs on every push and pull request:
 
 1. Starts a **SQL Server 2022** container.
-2. Loads [`tests/ci/mock_epo_schema.sql`](tests/ci/mock_epo_schema.sql): minimal `EPOLeafNode`, `EPOComputerProperties` and `EPOEvents` tables with seed data (fresh, stale and never-seen agents, 6 000 events), a deliberately fragmented table and a full backup with no log backup.
+2. Loads [`tests/ci/mock_epo_schema.sql`](tests/ci/mock_epo_schema.sql): minimal `EPOLeafNode`, `EPOComputerProperties`, `EPOEvents` and `EPOEventFilterDesc` tables with seed data (fresh, stale and never-seen agents, 6 000 events across products, threats and hosts), purge targets covering the edge cases of 09 (a view over an `...MT` table with 400-day-old rows, a heap, missing tables), a deliberately fragmented table and a full backup with no log backup.
 3. Executes **every** script in `sql/` and fails on any T-SQL error.
 4. Checks the results. For example: the stale-agent script must list the hosts silent for 10 and 45 days but **not** the one that checked in 2 hours ago; the fragmentation script must flag the GUID-keyed table for `REBUILD`; the backup script must warn about FULL recovery without log backups.
-5. Lints `run_all.ps1` with PSScriptAnalyzer.
+5. Runs **`run_all.ps1` end to end** with PowerShell 7 against the same database and checks its HTML, CSV and TXT output ([`tests/ci/test_runner.ps1`](tests/ci/test_runner.ps1)).
+6. Lints the PowerShell scripts with PSScriptAnalyzer.
 
 The output of every script is attached to each run as the `sql-output` artifact.
 
@@ -94,7 +115,9 @@ The output of every script is attached to each run as the `sql-output` artifact.
 | 05 | `top_queries` | ✅ | ⏳ not yet validated |
 | 06 | `backup_history` | ✅ | ⏳ not yet validated |
 | 07 | `wait_stats` | ✅ | ⏳ not yet validated |
-| — | `run_all.ps1` | ✅ lint only | ⏳ not yet validated |
+| 08 | `events_by_product` | ✅ | ⏳ not yet validated, ePO column names need checking |
+| 09 | `purge_check` | ✅ | ⏳ not yet validated, table names per ePO version need checking |
+| — | `run_all.ps1` | ✅ end to end (PowerShell 7, Linux) | ⏳ not yet validated on Windows PowerShell 5.1 |
 
 Found a problem? Please [open an issue](../../issues) with your ePO and SQL Server versions and the error message.
 
@@ -102,10 +125,12 @@ Found a problem? Please [open an issue](../../issues) with your ePO and SQL Serv
 
 - [x] CI: execute every script on SQL Server 2022 against a mock ePO schema
 - [x] Backup history and wait statistics scripts
+- [x] CSV / HTML report output, runner without sqlcmd
+- [x] Per-product event breakdown (08)
+- [x] Purge-task effectiveness check (09)
 - [ ] Validate all scripts on a lab ePO and fix any schema differences
-- [ ] CSV / HTML report output
-- [ ] Per-product event breakdown (ENS, DLP, HX)
-- [ ] Server-task history and failed-task report
+- [ ] Failed server-task report: needs the meaning of the status values in `OrionSchedulerTaskLog`,
+      which is not publicly documented; to be added after checking a lab ePO
 
 ## License
 

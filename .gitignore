@@ -1,3 +1,5 @@
 reports/
 *.txt
 *.csv
+runner-output/
+ci-output/

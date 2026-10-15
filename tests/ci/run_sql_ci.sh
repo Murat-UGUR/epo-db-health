@@ -64,5 +64,13 @@ reject 04_stale_agents.sql      "FRESH-HOST-01"     "does not list a host that c
 expect 04_stale_agents.sql      "5 - never"         "counts the host that never communicated"
 expect 06_backup_history.sql    "ePO_CI CI backup\|ePO_CI.bak" "shows the recorded backup"
 expect 06_backup_history.sql    "WARNING: FULL"     "warns about FULL recovery without log backups"
+expect 08_events_by_product.sql "Mock.Trojan.A"     "lists threats by name"
+expect 08_events_by_product.sql "LOUD-HOST-01"      "finds the loudest host"
+expect 08_events_by_product.sql "Exploit prevention rule triggered" "shows the English event description"
+reject 08_events_by_product.sql "Turkish text"      "does not show non-English descriptions"
+expect 09_purge_check.sql       "OrionAuditLogMT"   "follows the view to its MT base table"
+expect 09_purge_check.sql       "WARNING: data older than 90 days" "flags the 400-day-old audit log"
+expect 09_purge_check.sql       "EPORollup_Events.*not present" "reports missing tables instead of failing"
+expect 09_purge_check.sql       "OrionSchedulerTaskLogDetail" "handles a heap without a clustered index"
 
 exit $fail

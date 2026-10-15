@@ -170,6 +170,9 @@ if ($Include) {
 if ($scripts.Count -eq 0) { throw 'No scripts selected.' }
 
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+# .NET file APIs resolve relative paths against the process directory, which in Windows
+# PowerShell is not the current PowerShell location: always hand them an absolute path.
+$OutDir = (Resolve-Path -LiteralPath $OutDir).ProviderPath
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $sections = New-Object System.Collections.Generic.List[string]
 $summary = New-Object System.Collections.Generic.List[object]

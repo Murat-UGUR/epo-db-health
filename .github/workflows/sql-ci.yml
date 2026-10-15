@@ -35,6 +35,36 @@ jobs:
             ci-output/
             runner-output/
 
+  windows-powershell:
+    name: run_all.ps1 on Windows PowerShell 5.1 (SQL Server LocalDB, Windows auth)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start SQL Server LocalDB
+        shell: pwsh
+        run: |
+          $exe = (Get-Command SqlLocalDB.exe -ErrorAction SilentlyContinue).Source
+          if (-not $exe) {
+            choco install sqllocaldb --no-progress -y
+            $exe = (Get-ChildItem 'C:\Program Files\Microsoft SQL Server' -Recurse -Filter SqlLocalDB.exe |
+                    Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          }
+          if (-not $exe) { throw 'SqlLocalDB.exe not found' }
+          & $exe create ci -s
+          & $exe info ci
+      - name: Load mock ePO schema
+        shell: pwsh
+        run: ./tests/ci/load_sql.ps1 -Server '(localdb)\ci' -Path tests/ci/mock_epo_schema.sql
+      - name: Run run_all.ps1 under Windows PowerShell 5.1 and check its reports
+        shell: powershell
+        run: .\tests\ci\test_runner.ps1 -Server '(localdb)\ci'
+      - name: Upload runner output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runner-output-windows
+          path: runner-output/
+
   powershell:
     name: Lint PowerShell
     runs-on: ubuntu-latest
@@ -47,7 +77,7 @@ jobs:
           Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
           $r = @(
             Invoke-ScriptAnalyzer -Path ./run_all.ps1 -Severity Error
-            Invoke-ScriptAnalyzer -Path ./tests/ci/test_runner.ps1 -Severity Error
+            Invoke-ScriptAnalyzer -Path ./tests/ci -Severity Error
           )
           $r | Format-Table -AutoSize
           if ($r) { exit 1 }

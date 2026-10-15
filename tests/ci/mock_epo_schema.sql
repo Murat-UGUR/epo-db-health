@@ -74,6 +74,8 @@ INSERT dbo.EPOLeafNode (NodeName, LastUpdate) VALUES
     (N'FRESH-HOST-01', DATEADD(HOUR, -2,  GETUTCDATE())),
     (N'STALE-HOST-01', DATEADD(DAY,  -10, GETUTCDATE())),
     (N'STALE-HOST-02', DATEADD(DAY,  -45, GETUTCDATE())),
+    -- Turkish dotted capital I built with NCHAR(304) so the file's encoding cannot corrupt it
+    (NCHAR(304) + N'STANBUL-PC-01', DATEADD(DAY, -20, GETUTCDATE())),
     (N'NEVER-HOST-01', NULL);
 INSERT dbo.EPOComputerProperties (ParentID, IPAddress, OSType)
 SELECT AutoID, CONCAT(N'10.0.0.', AutoID), N'Windows 11' FROM dbo.EPOLeafNode;
@@ -113,5 +115,6 @@ GO
 
 -- Backup history for 06_backup_history (FULL recovery + full backup, but no log backup -> warning expected)
 ALTER DATABASE ePO_CI SET RECOVERY FULL;
-BACKUP DATABASE ePO_CI TO DISK = N'/var/opt/mssql/data/ePO_CI.bak' WITH INIT, NAME = N'ePO_CI CI backup';
+-- Relative file name = the instance's default backup directory (Linux container and Windows LocalDB)
+BACKUP DATABASE ePO_CI TO DISK = N'ePO_CI.bak' WITH INIT, NAME = N'ePO_CI CI backup';
 GO

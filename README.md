@@ -92,14 +92,15 @@ A login with `db_datareader` on the ePO database, `VIEW DATABASE STATE`, and `VI
 
 ## How it's tested
 
-The [SQL CI](.github/workflows/sql-ci.yml) workflow runs on every push and pull request:
+The [SQL CI](.github/workflows/sql-ci.yml) workflow runs on every push and pull request. The scripts are executed on **SQL Server 2022** (Linux container) and on the **SQL Server LocalDB** that ships with the Windows runner (currently SQL Server 2025):
 
 1. Starts a **SQL Server 2022** container.
 2. Loads [`tests/ci/mock_epo_schema.sql`](tests/ci/mock_epo_schema.sql): minimal `EPOLeafNode`, `EPOComputerProperties`, `EPOEvents` and `EPOEventFilterDesc` tables with seed data (fresh, stale and never-seen agents, 6 000 events across products, threats and hosts), purge targets covering the edge cases of 09 (a view over an `...MT` table with 400-day-old rows, a heap, missing tables), a deliberately fragmented table and a full backup with no log backup.
 3. Executes **every** script in `sql/` and fails on any T-SQL error.
 4. Checks the results. For example: the stale-agent script must list the hosts silent for 10 and 45 days but **not** the one that checked in 2 hours ago; the fragmentation script must flag the GUID-keyed table for `REBUILD`; the backup script must warn about FULL recovery without log backups.
 5. Runs **`run_all.ps1` end to end** with PowerShell 7 against the same database and checks its HTML, CSV and TXT output ([`tests/ci/test_runner.ps1`](tests/ci/test_runner.ps1)).
-6. Lints the PowerShell scripts with PSScriptAnalyzer.
+6. On a **Windows** runner, loads the same mock schema into **SQL Server LocalDB** and runs `run_all.ps1` under **Windows PowerShell 5.1** with **Windows authentication**, including a Turkish host name (`İSTANBUL-PC-01`) to prove UTF-8 survives into the HTML and CSV reports, and a relative `-OutDir` check.
+7. Lints the PowerShell scripts with PSScriptAnalyzer.
 
 The output of every script is attached to each run as the `sql-output` artifact.
 
@@ -117,7 +118,7 @@ The output of every script is attached to each run as the `sql-output` artifact.
 | 07 | `wait_stats` | ✅ | ⏳ not yet validated |
 | 08 | `events_by_product` | ✅ | ⏳ not yet validated, ePO column names need checking |
 | 09 | `purge_check` | ✅ | ⏳ not yet validated, table names per ePO version need checking |
-| — | `run_all.ps1` | ✅ end to end (PowerShell 7, Linux) | ⏳ not yet validated on Windows PowerShell 5.1 |
+| — | `run_all.ps1` | ✅ end to end: PowerShell 7 (Linux, SQL auth) and Windows PowerShell 5.1 (LocalDB, Windows auth) | ⏳ not yet validated |
 
 Found a problem? Please [open an issue](../../issues) with your ePO and SQL Server versions and the error message.
 

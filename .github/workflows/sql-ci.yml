@@ -20,7 +20,7 @@ jobs:
         ports:
           - 1433:1433
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Execute every script and check results
         run: bash tests/ci/run_sql_ci.sh "${{ job.services.mssql.id }}" "$SA_PASSWORD"
       - name: Run run_all.ps1 end to end and check its reports
@@ -28,7 +28,7 @@ jobs:
         run: ./tests/ci/test_runner.ps1 -Password $env:SA_PASSWORD
       - name: Upload script output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sql-output
           path: |
@@ -39,7 +39,7 @@ jobs:
     name: run_all.ps1 on Windows PowerShell 5.1 (SQL Server LocalDB, Windows auth)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Start SQL Server LocalDB
         shell: pwsh
         run: |
@@ -60,7 +60,7 @@ jobs:
         run: .\tests\ci\test_runner.ps1 -Server '(localdb)\ci'
       - name: Upload runner output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: runner-output-windows
           path: runner-output/
@@ -69,7 +69,7 @@ jobs:
     name: Lint PowerShell
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: PSScriptAnalyzer (errors only)
         shell: pwsh
         run: |
